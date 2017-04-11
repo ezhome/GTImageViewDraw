@@ -11,13 +11,14 @@
 @interface UIView (Draw)
 
 - (void)startDrawing;
--(void)stopDrawing;
--(void)resetImage;
--(void)setBrush:(CGFloat) b;
--(void) setColor:(UIColor *) color;
+- (void)stopDrawing;
+- (void)resetImage;
+- (void)setBrush:(CGFloat) b;
+- (void)setColor:(UIColor *) color;
 - (UIImage*)imageByCombiningImage:(UIImage*)firstImage withImage:(UIImage*)secondImage;
--(void) save;
+- (void)save;
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event;
--(void)selectRubber;
+- (void)selectRubber;
+- (UIImage *)getCurrentImage;
 
 @end

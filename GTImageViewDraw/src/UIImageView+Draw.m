@@ -24,7 +24,7 @@ CGFloat brush = 5.0;
 CGFloat opacity = 1.0;
 BOOL mouseSwiped;
 
--(void)startDrawing{
+- (void)startDrawing{
 
     activate = YES;
     self.userInteractionEnabled = YES;
@@ -34,45 +34,49 @@ BOOL mouseSwiped;
     
 }
 
--(void)stopDrawing{
-    
-    activate = NO;
-    
+- (void)debugMode:(BOOL)mode {
+    if (mode) {
+        self.layer.borderWidth = 4;
+        self.layer.borderColor = [UIColor redColor].CGColor;
+        mainImageView.layer.borderWidth = 2;
+        mainImageView.layer.borderColor = [UIColor blueColor].CGColor;
+    } else {
+        self.layer.borderWidth = 0;
+        mainImageView.layer.borderWidth = 0;
+    }
 }
 
--(void)resetImage{
+- (void)stopDrawing {
+    
+    activate = NO;
+}
+
+- (void)resetImage {
     
      _isErasing = NO;
     [mainImageView removeFromSuperview];
     mainImageView = nil;
     mainImageView = [[UIImageView alloc] initWithFrame:self.bounds];
     [self addSubview:mainImageView];
-    
 }
 
--(void)setBrush:(CGFloat) b{
+- (void)setBrush:(CGFloat) b {
     
     brush = b;
-    
 }
 
--(void) setColor:(UIColor *) color{
-    
+- (void) setColor:(UIColor *) color {
      _isErasing = NO;
     [color getRed:&red green:&green blue:&blue alpha:&opacity];
-    
-    
 }
 
 - (UIImage*)imageByCombiningImage:(UIImage*)firstImage withImage:(UIImage*)secondImage {
     UIImage *image = nil;
     
     CGSize newImageSize = CGSizeMake(MAX(firstImage.size.width, secondImage.size.width), MAX(firstImage.size.height, secondImage.size.height));
-    if (UIGraphicsBeginImageContextWithOptions != NULL) {
-        UIGraphicsBeginImageContextWithOptions(newImageSize, NO, [[UIScreen mainScreen] scale]);
-    } else {
-        UIGraphicsBeginImageContext(newImageSize);
-    }
+    
+    UIGraphicsBeginImageContextWithOptions(newImageSize, NO, 0.0);
+
     [firstImage drawAtPoint:CGPointMake(roundf((newImageSize.width-firstImage.size.width)/2),
                                         roundf((newImageSize.height-firstImage.size.height)/2))];
     [secondImage drawAtPoint:CGPointMake(roundf((newImageSize.width-secondImage.size.width)/2),
@@ -84,7 +88,15 @@ BOOL mouseSwiped;
 }
 
 
--(void) save{
+- (CGFloat)getScale {
+    CGFloat scale = 1.0;
+    if([[UIScreen mainScreen]respondsToSelector:@selector(scale)]) {
+        scale = [[UIScreen mainScreen]scale];
+    }
+    return scale;
+}
+
+- (void)save {
     
     UIImage *imageToSave = [self imageByCombiningImage:mainImg withImage:mainImageView.image];
     
@@ -96,28 +108,53 @@ BOOL mouseSwiped;
     
 }
 
+- (UIImage *)getCurrentImage {
+    
+    
+    UIImage *bottomImage = mainImg; //background image
+    UIImage *image       = mainImageView.image; //foreground image
+    
+    CGSize newSize = CGSizeMake(mainImg.size.width, mainImg.size.height);
+    UIImage *newImage;
+    
+    @autoreleasepool {
+        UIGraphicsBeginImageContext(newSize);
+        
+        // Use existing opacity as is
+        [bottomImage drawInRect:CGRectMake(0, 0, newSize.width, newSize.height)];
+        
+        // Apply supplied opacity if applicable
+        CGFloat imageViewAspect = bottomImage.size.width / bottomImage.size.height;
+        CGFloat drawingViewAspect = image.size.width / image.size.height;
+        CGFloat aspectChange = imageViewAspect / drawingViewAspect;
+        CGRect drawRect = CGRectMake(0, (1 - aspectChange) * newSize.height / 2, newSize.width,  aspectChange * newSize.height);
+        [image drawInRect:drawRect];
+        
+        newImage = UIGraphicsGetImageFromCurrentImageContext();
+
+        UIGraphicsEndImageContext();
+    }
+    self.layer.contents = nil;
+    mainImg = nil;
+    mainImageView.image = nil;
+    mainImageView = nil;
+    return newImage;
+}
+
+
 - (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo
 {
-    
-    if (error != NULL)
-    {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Error" message:@"Image could not be saved.Please try again"  delegate:nil cancelButtonTitle:nil otherButtonTitles:@"Close", nil];
-        [alert show];
-    } else {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Success" message:@"Image was successfully saved in photoalbum"  delegate:nil cancelButtonTitle:nil otherButtonTitles:@"Close", nil];
-        [alert show];
-    }
+    //
 }
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
 
-    if(activate){
-        NSLog(@"touchbegan");
-        mouseSwiped = NO;
-        UITouch *touch = [touches anyObject];
-        lastPoint = [touch locationInView:self];
+    if(!activate){
+        [self startDrawing];
     }
-    
+    mouseSwiped = NO;
+    UITouch *touch = [touches anyObject];
+    lastPoint = [touch locationInView:self];
 }
 
 -(void)selectRubber{
@@ -129,13 +166,12 @@ BOOL mouseSwiped;
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event {
     
     if(activate){
-        NSLog(@"touchmoved");
         mouseSwiped = YES;
         UITouch *touch = [touches anyObject];
         CGPoint currentPoint = [touch locationInView:self];
         
         UIGraphicsBeginImageContext(self.frame.size);
-        [mainImageView.image drawInRect:CGRectMake(0, 0, self.frame.size.width, self.frame.size.height)];
+        [mainImageView.image drawInRect:CGRectMake(0, 0, roundf(self.frame.size.width), roundf(self.frame.size.height))];
         CGContextMoveToPoint(UIGraphicsGetCurrentContext(), lastPoint.x, lastPoint.y);
         CGContextAddLineToPoint(UIGraphicsGetCurrentContext(), currentPoint.x, currentPoint.y);
         CGContextSetLineCap(UIGraphicsGetCurrentContext(), kCGLineCapRound);
@@ -163,7 +199,6 @@ BOOL mouseSwiped;
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event {
     
     if(activate){
-        NSLog(@"touchended");
         if(!mouseSwiped) {
             UIGraphicsBeginImageContext(self.frame.size);
             [mainImageView.image drawInRect:CGRectMake(0, 0, self.frame.size.width, self.frame.size.height)];
